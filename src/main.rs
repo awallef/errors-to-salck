@@ -4,7 +4,7 @@ extern crate rev_lines;
 use std::env;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Result;
+//use serde_json::Result;
 
 use std::sync::mpsc::{channel, Receiver};
 use notify::{Watcher, FsEventWatcher, RecursiveMode, RawEvent, raw_watcher};
@@ -16,7 +16,6 @@ use rev_lines::RevLines;
 use regex::Regex;
 
 use slack_hook2::{Slack, PayloadBuilder};
-
 
 #[derive(Serialize, Deserialize)]
 struct Config {
@@ -83,27 +82,27 @@ impl Channel {
             }
         }
 
-        &mut self
+        self
     }
 
-    fn sendToSlack(&mut self) -> &mut Channel
+    async fn sendToSlack(&mut self) -> &mut Channel
     {
-        let mut message: String = self.logs.join("\n");
+        let txt: String = self.logs.join("\n");
 
         let p = PayloadBuilder::new()
-        .text(message)
+        .text(txt)
         .icon_emoji(":chart_with_upwards_trend:")
         .build()
         .unwrap();
 
-        let res = self.slack.send(&p);
+        let res = self.slack.send(&p).await;
 
         match res {
             Ok(()) => println!("ok"),
-            Err(x) => println!("ERR: {:?}",x)
+            Err(error) => println!("ERR: {:?}",error)
         }
 
-        &self
+        self
     }
 }
 
@@ -115,12 +114,13 @@ fn main()
     let paths = fs::read_dir("/data01/errors-to-slack").unwrap();
     for path in paths
     {
-        channels.push(Channel::new(path.unwrap().path()));
+        let p: String = path.unwrap().path().to_str().unwrap().to_string();
+        channels.push(Channel::new(p));
     }
 
     loop
     {
-        for channel in &channels
+        for channel in &mut channels
         {
 
             match channel.receiver.recv() {
