@@ -6,7 +6,7 @@ use std::env;
 use serde::{Deserialize, Serialize};
 
 use std::sync::mpsc::{channel, Receiver};
-use notify::{Watcher, FsEventWatcher, RecursiveMode, RawEvent, raw_watcher};
+use notify::{Watcher, RecommendedWatcher, RecursiveMode, RawEvent, raw_watcher};
 
 use std::fs::{self,File};
 use std::io::BufReader;
@@ -25,7 +25,7 @@ struct Config {
 }
 
 struct Channel {
-    watcher: FsEventWatcher,
+    watcher: RecommendedWatcher,
     receiver: Receiver<RawEvent>,
     slack: Slack,
     config: Config,
