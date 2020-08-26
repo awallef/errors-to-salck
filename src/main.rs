@@ -103,7 +103,7 @@ impl Channel {
         let res = self.slack.send(&p).await;
 
         match res {
-            Ok(()) => { println!("ok"); },
+            Ok(()) => { /* silence is golden */ },
             Err(err) => {
                 println!("Error: {}", err);
             },
