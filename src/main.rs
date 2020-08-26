@@ -2,14 +2,11 @@ extern crate notify;
 extern crate rev_lines;
 
 use std::env;
-use std::result::Result;
 
 use serde::{Deserialize, Serialize};
-//use serde_json::Result;
 
 use std::sync::mpsc::{channel, Receiver};
 use notify::{Watcher, FsEventWatcher, RecursiveMode, RawEvent, raw_watcher};
-//use std::time::Duration;
 
 use std::fs::{self,File};
 use std::io::BufReader;
@@ -22,6 +19,7 @@ use slack_hook2::{Slack, PayloadBuilder};
 #[derive(Serialize, Deserialize)]
 struct Config {
     name: String,
+    url: String,
     path: String,
     hook: String,
 }
@@ -63,12 +61,18 @@ impl Channel {
         }
     }
 
-    fn readLogs(&mut self) -> &mut Channel
+    fn read_logs(&mut self) -> &mut Channel
     {
-        let firstLine_re = Regex::new(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} ").unwrap();
-        let reuqest_re = Regex::new(r"^Request URL: ").unwrap();
-        let referer_re = Regex::new(r"^Referer URL: ").unwrap();
+        // clear previous logs
+        self.logs = Vec::new();
+        self.logs.push(self.config.name.clone());
+        self.logs.push(self.config.url.clone());
 
+        // set regexp
+        let first_line_re = Regex::new(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} ").unwrap();
+        let reuqest_re = Regex::new(r"^Request URL: ").unwrap();
+
+        // readfile
         let file = File::open(&self.config.path).unwrap();
         let rev_lines = RevLines::new(BufReader::new(file)).unwrap();
         for line in rev_lines
@@ -77,11 +81,7 @@ impl Channel {
                 self.logs.push(line);
                 continue;
             }
-            if referer_re.is_match(&line) {
-                self.logs.push(line);
-                continue;
-            }
-            if firstLine_re.is_match(&line) {
+            if first_line_re.is_match(&line) {
                 self.logs.push(line);
                 break;
             }
@@ -90,7 +90,7 @@ impl Channel {
         self
     }
 
-    async fn sendToSlack(&mut self) -> &mut Channel
+    async fn send_to_slack(&mut self) -> &mut Channel
     {
         let txt: String = self.logs.join("\n");
 
@@ -129,19 +129,13 @@ fn main()
     {
         for channel in &mut channels
         {
-
             match channel.receiver.recv() {
-                Ok(RawEvent{path: Some(path), op: Ok(op), cookie}) => {
-
-                    println!("pat: {:?}  changed", &path);
-                    channel.readLogs();
-
+                Ok(_event) => {
                     // async time !!!
                     Runtime::new()
                     .expect("Failed to create Tokio runtime")
-                    .block_on(channel.sendToSlack());
+                    .block_on(channel.read_logs().send_to_slack());
                 },
-                Ok(event) => println!("broken event: {:?}", event),
                 Err(e) => println!("watch error: {:?}", e),
             }
         }
