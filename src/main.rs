@@ -2,6 +2,7 @@ extern crate notify;
 extern crate rev_lines;
 
 use std::env;
+use std::result::Result;
 
 use serde::{Deserialize, Serialize};
 //use serde_json::Result;
@@ -15,6 +16,7 @@ use std::io::BufReader;
 use rev_lines::RevLines;
 use regex::Regex;
 
+use tokio::runtime::Runtime;
 use slack_hook2::{Slack, PayloadBuilder};
 
 #[derive(Serialize, Deserialize)]
@@ -49,6 +51,9 @@ impl Channel {
         // add Slack hook
         let slack = Slack::new(&config.hook).unwrap();
 
+        // println macro
+        println!("Add:{} to watching list", &config.path);
+
         Channel {
             receiver: receiver,
             watcher: watcher,
@@ -60,23 +65,23 @@ impl Channel {
 
     fn readLogs(&mut self) -> &mut Channel
     {
-        let firstLineRe = Regex::new(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} ").unwrap();
-        let reuqestRe = Regex::new(r"^Request URL: ").unwrap();
-        let refererRe = Regex::new(r"^Referer URL: ").unwrap();
+        let firstLine_re = Regex::new(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} ").unwrap();
+        let reuqest_re = Regex::new(r"^Request URL: ").unwrap();
+        let referer_re = Regex::new(r"^Referer URL: ").unwrap();
 
         let file = File::open(&self.config.path).unwrap();
         let rev_lines = RevLines::new(BufReader::new(file)).unwrap();
         for line in rev_lines
         {
-            if reuqestRe.is_match(&line) {
+            if reuqest_re.is_match(&line) {
                 self.logs.push(line);
                 continue;
             }
-            if refererRe.is_match(&line) {
+            if referer_re.is_match(&line) {
                 self.logs.push(line);
                 continue;
             }
-            if firstLineRe.is_match(&line) {
+            if firstLine_re.is_match(&line) {
                 self.logs.push(line);
                 break;
             }
@@ -98,8 +103,10 @@ impl Channel {
         let res = self.slack.send(&p).await;
 
         match res {
-            Ok(()) => println!("ok"),
-            Err(error) => println!("ERR: {:?}",error)
+            Ok(()) => { println!("ok"); },
+            Err(err) => {
+                println!("Error: {}", err);
+            },
         }
 
         self
@@ -125,9 +132,14 @@ fn main()
 
             match channel.receiver.recv() {
                 Ok(RawEvent{path: Some(path), op: Ok(op), cookie}) => {
-                    channel
-                    .readLogs()
-                    .sendToSlack();
+
+                    println!("pat: {:?}  changed", &path);
+                    channel.readLogs();
+
+                    // async time !!!
+                    Runtime::new()
+                    .expect("Failed to create Tokio runtime")
+                    .block_on(channel.sendToSlack());
                 },
                 Ok(event) => println!("broken event: {:?}", event),
                 Err(e) => println!("watch error: {:?}", e),
