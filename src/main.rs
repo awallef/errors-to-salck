@@ -115,10 +115,13 @@ impl Channel {
 
 fn main()
 {
+    let args: Vec<String> = env::args().collect();
     let mut channels:Vec<Channel> = Vec::new();
+    let folder_to_read:String = if args.len() > 1 { args[1].clone() } else { String::from("/data01/errors-to-slack") };
+
 
     // parse folder
-    let paths = fs::read_dir("/data01/errors-to-slack").unwrap();
+    let paths = fs::read_dir(folder_to_read).unwrap();
     for path in paths
     {
         let p: String = path.unwrap().path().to_str().unwrap().to_string();
