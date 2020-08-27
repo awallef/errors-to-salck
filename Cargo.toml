@@ -1,5 +1,5 @@
 [package]
-name = "errors-to-salck"
+name = "errors-to-slack"
 version = "0.1.0"
 authors = ["awallef <antoine.wallef@gmail.com>"]
 edition = "2018"
