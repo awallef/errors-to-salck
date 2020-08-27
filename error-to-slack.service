@@ -2,7 +2,7 @@
 Description=Rust Error to Slack
 
 [Service]
-ExecStart=/usr/sbin/rust-errors-to-slack
+ExecStart=/usr/sbin/errors-to-slack
 
 [Install]
 WantedBy=multi-user.target
